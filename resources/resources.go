@@ -50,7 +50,6 @@ func main() {
 
 	for range ticker.C {
 		var podInfo []co.PodInfo
-
 		for _, pod := range pods.Items {
 			if pod.Namespace == "kube-system" {
 				continue

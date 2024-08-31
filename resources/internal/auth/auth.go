@@ -68,7 +68,7 @@ func (m *ClientManager) GetMetricsClient() (*versioned.Clientset, error) {
 	m.metricsOnce.Do(func() {
 		config, errConfig := rest.InClusterConfig()
 		if errConfig != nil {
-			err = fmt.Errorf("failed to get in-cluster Kubernetes config: %w", errConfig)
+			err = fmt.Errorf("failed to get in-cluster metric server config: %w", errConfig)
 			m.log.Error(err)
 			return
 		}
