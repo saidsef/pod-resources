@@ -1,3 +1,10 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/saidsef/pod-resources)](https://goreportcard.com/report/github.com/saidsef/pod-resources)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/saidsef/pod-resources)
+[![GoDoc](https://godoc.org/github.com/saidsef/pod-resources?status.svg)](https://pkg.go.dev/github.com/saidsef/pod-resources?tab=doc)
+![GitHub release(latest by date)](https://img.shields.io/github/v/release/saidsef/pod-resources)
+![Commits](https://img.shields.io/github/commits-since/saidsef/pod-resources/latest.svg)
+![GitHub](https://img.shields.io/github/license/saidsef/pod-resources)
+
 # Pod Resources Monitoring
 
 This project is a Kubernetes resource monitoring application that retrieves pod metrics and checks resource usage periodically. It sends alerts and warnings based on the defined resource limits and requests for each container within the pods.

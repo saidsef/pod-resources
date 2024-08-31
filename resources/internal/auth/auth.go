@@ -16,7 +16,10 @@ type ClientManager struct {
 	metricsClientset *versioned.Clientset  // The metrics clientset instance.
 	k8sOnce          sync.Once             // Ensures that the Kubernetes client is created only once.
 	metricsOnce      sync.Once             // Ensures that the metrics client is created only once.
+	configOnce       sync.Once             // Ensures that the in-cluster config is created only once.
 	log              *logrus.Logger        // Logger for logging events and errors.
+	config           *rest.Config          // The in-cluster configuration.
+	configErr        error                 // Error encountered while creating the in-cluster configuration.
 }
 
 // NewClientManager creates a new instance of ClientManager.
@@ -28,6 +31,17 @@ func NewClientManager(log *logrus.Logger) *ClientManager {
 	return &ClientManager{log: log}
 }
 
+// getInClusterConfig retrieves the in-cluster configuration and handles errors.
+func (m *ClientManager) getInClusterConfig() (*rest.Config, error) {
+	m.configOnce.Do(func() {
+		m.config, m.configErr = rest.InClusterConfig()
+		if m.configErr != nil {
+			m.configErr = fmt.Errorf("failed to get in-cluster Kubernetes config: %w", m.configErr)
+		}
+	})
+	return m.config, m.configErr
+}
+
 // GetKubernetesClient returns the Kubernetes clientset instance, creating it if necessary.
 // Returns:
 // - A pointer to the Kubernetes clientset instance.
@@ -35,10 +49,10 @@ func NewClientManager(log *logrus.Logger) *ClientManager {
 func (m *ClientManager) GetKubernetesClient() (*kubernetes.Clientset, error) {
 	var err error
 	m.k8sOnce.Do(func() {
-		config, errConfig := rest.InClusterConfig()
+		config, errConfig := m.getInClusterConfig()
 		if errConfig != nil {
-			err = fmt.Errorf("failed to get in-cluster Kubernetes config: %w", errConfig)
-			m.log.Error(err)
+			m.log.Error(errConfig)
+			err = errConfig
 			return
 		}
 
@@ -66,10 +80,10 @@ func (m *ClientManager) GetKubernetesClient() (*kubernetes.Clientset, error) {
 func (m *ClientManager) GetMetricsClient() (*versioned.Clientset, error) {
 	var err error
 	m.metricsOnce.Do(func() {
-		config, errConfig := rest.InClusterConfig()
+		config, errConfig := m.getInClusterConfig()
 		if errConfig != nil {
-			err = fmt.Errorf("failed to get in-cluster Kubernetes config: %w", errConfig)
-			m.log.Error(err)
+			m.log.Error(errConfig)
+			err = errConfig
 			return
 		}
 
