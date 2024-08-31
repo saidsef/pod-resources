@@ -14,13 +14,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	api              = *notifications.NewSlackClient()
+	DURATION_SECONDS = utils.GetEnv("DURATION_SECONDS", "120", log)
+	k8sManager       = auth.NewClientManager(log)
+	log              = utils.Logger()
+	messages         = []string{}
+)
+
 // main is the entry point of the application. It sets up the Kubernetes client,
 // retrieves pod metrics, and periodically checks resource usage.
 func main() {
-	log := utils.Logger()
-	k8sManager := auth.NewClientManager(log)
-	DURATION_SECONDS := utils.GetEnv("DURATION_SECONDS", "120", log)
-
 	clientset, err := k8sManager.GetKubernetesClient()
 	if err != nil {
 		utils.LogWithFields(logrus.FatalLevel, nil, "Kubernetes config error", err)
@@ -86,9 +90,6 @@ func main() {
 // checkResources checks the resource usage of a given pod and sends notifications
 // if the usage exceeds defined limits or requests.
 func checkResources(info co.PodInfo) {
-	api := *notifications.NewSlackClient()
-	messages := []string{}
-
 	sendOrAppend := func(message string) {
 		if notifications.SlackEnabled() {
 			notifications.SendSlackNotification(&api, message)
