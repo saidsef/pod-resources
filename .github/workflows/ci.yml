@@ -4,7 +4,7 @@ on:
     branches:
       - main
     paths:
-      - "pruner/**"
+      - "resources/**"
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
@@ -13,7 +13,7 @@ on:
     branches:
       - main
     paths:
-      - "pruner/**"
+      - "resources/**"
       - "go.mod"
       - "go.sum"
       - "Dockerfile"
@@ -41,7 +41,7 @@ jobs:
       with:
         go-version: ${{ matrix.go }}
     - name: Codecov Test Run
-      working-directory: pruner/
+      working-directory: resources/
       run: |
         go get
         go test -v -race -coverprofile=coverage.txt -covermode=atomic
@@ -58,10 +58,10 @@ jobs:
       run: |
         echo "TAG=${{ github.head_ref || github.ref_name }}" >> $GITHUB_ENV
         echo "DATE=v$(echo `date +'%Y.%m'`)" >> $GITHUB_ENV
-    - name: Check for changes in 'pruner' folder
+    - name: Check for changes in 'resources' folder
       id: check_changes
       run: |
-        git diff --exit-code HEAD^ HEAD -- pruner || echo "changed=true" >> $GITHUB_ENV
+        git diff --exit-code HEAD^ HEAD -- resources || echo "changed=true" >> $GITHUB_ENV
     - name: Login to DockerHub
       if: ${{ env.changed == 'true' }}
       uses: docker/login-action@v3
@@ -114,14 +114,14 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-  pruner:
+  resources:
     runs-on: ubuntu-latest
     needs: [build]
     if: ${{ contains(github.ref, 'main') }}
     steps:
     - uses: actions/delete-package-versions@v5
       with: 
-        package-name: 'pod-pruner'
+        package-name: 'pod-resources'
         package-type: 'container'
         min-versions-to-keep: 10
         # ignore-versions: '^(0|[1-9]\\d*)\\.0\\.0$|^(latest|v\\d{4}\\.\\d{2})$'
@@ -140,7 +140,7 @@ jobs:
           kubectl cluster-info
           export NS=`cat deployment/kustomization.yml  | grep namespace | awk '{ print $2 }'`
           if [ -z "$NS" ]; then
-            export NS='pod-pruner'
+            export NS='pod-resources'
           fi
           kubectl create namespace $NS
           kubectl kustomize deployment/ | kubectl apply -f -
