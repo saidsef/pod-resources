@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pod-resources
+  name: pod-resources
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: pod-resources
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: pod-resources
+    spec:
+      containers:
+        - env: []
+          image: 'docker.io/saidsef/pod-resources:dev'
+          imagePullPolicy: Always
+          name: pod-resources
+          resources:
+            limits:
+              cpu: 10m
+              memory: 15Mi
+            requests:
+              cpu: 5m
+              memory: 5Mi
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      serviceAccountName: pod-resources
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,76 @@
+# Pod Resources Monitoring
+
+This project is a Kubernetes resource monitoring application that retrieves pod metrics and checks resource usage periodically. It sends alerts and warnings based on the defined resource limits and requests for each container within the pods.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [License](#license)
+
+## Features
+
+- Monitors CPU and memory usage of Kubernetes pods.
+- Sends alerts if resource usage exceeds defined limits or requests.
+- Supports Slack notifications for alerts.
+- Configurable monitoring duration.
+
+## Requirements
+
+- Go 1.16 or later
+- Kubernetes cluster
+- Access to Kubernetes API
+- Slack account (optional for notifications)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/saidsef/pod-resources.git
+cd pod-resources
+```
+
+2. Install the required Go modules:
+```bash
+go mod tidy
+```
+
+## Configuration
+
+Before running the application, you need to set up the following environment variables:
+
+- `DURATION_SECONDS`: The duration (in seconds) for which the application will check resource usage. Default is `120`.
+- `SLACK_TOKEN`: The token for your Slack app to send notifications (optional).
+- `SLACK_CHANNEL`: The Slack channel where notifications will be sent (optional).
+
+You can set these variables in your terminal or create a `.env` file and load it before running the application.
+
+## Usage
+
+To run the application, execute the following command:
+
+```bash
+go run resources.go
+```
+
+The application will connect to the Kubernetes cluster, retrieve the list of pods, and start monitoring their resource usage based on the specified duration.
+
+### Alerts and Notifications
+
+- If a container exceeds its resource request, an alert will be sent.
+- If a container has a limit set but no request defined, a warning will be logged.
+- If a container exceeds its resource limit, an alert will be sent.
+- Warnings will be logged if no limits or requests are defined for CPU or memory.
+
+## Source
+
+Our latest and greatest source of *Reverse Geocoding* can be found on [GitHub]. [Fork us](https://github.com/saidsef/pod-resources/fork)!
+
+## Contributing
+
+We would :heart: you to contribute by making a [pull request](https://github.com/saidsef/pod-resources/pulls).
+
+Please read the official [Contribution Guide](./CONTRIBUTING.md) for more information on how you can contribute.
