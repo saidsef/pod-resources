@@ -3,12 +3,12 @@ kind: ClusterRole
 metadata:
   name: pod-resources
 rules:
-  - apiGroups: ['']
-    resources: ['pods']
-    verbs: ['list', 'delete']
-  - apiGroups: ['']
-    resources: ['pods/eviction']
-    verbs: ['create']
   - apiGroups: ['batch']
     resources: ['jobs']
-    verbs: ['list', 'delete']
+    verbs: ['get', 'list']
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
