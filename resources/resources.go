@@ -16,7 +16,7 @@ import (
 
 var (
 	api              = *notifications.NewSlackClient()
-	DURATION_SECONDS = utils.GetEnv("DURATION_SECONDS", "120", log)
+	DURATION_SECONDS = utils.GetEnv("DURATION_SECONDS", "120s", log)
 	k8sManager       = auth.NewClientManager(log)
 	log              = utils.Logger()
 	messages         = []string{}
