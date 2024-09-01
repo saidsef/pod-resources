@@ -37,12 +37,6 @@ func main() {
 		return
 	}
 
-	pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		utils.LogWithFields(logrus.ErrorLevel, nil, "Cannot get pods", err)
-		return
-	}
-
 	duration, err := time.ParseDuration(DURATION_SECONDS)
 	if err != nil {
 		utils.LogWithFields(logrus.ErrorLevel, nil, "Cannot parse duration", err)
@@ -54,6 +48,11 @@ func main() {
 
 	for range ticker.C {
 		var podInfo []co.PodInfo
+		pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			utils.LogWithFields(logrus.ErrorLevel, nil, "Cannot get pods", err)
+			return
+		}
 		for _, pod := range pods.Items {
 			if pod.Namespace == "kube-system" {
 				continue
