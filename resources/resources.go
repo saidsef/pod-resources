@@ -87,16 +87,26 @@ func main() {
 	}
 }
 
+// sendOrAppend sends a message via Slack if Slack notifications are enabled,
+// otherwise, it appends the message to a local messages slice.
+//
+// Parameters:
+// - message: The message to be sent or appended.
+//
+// Behaviour:
+// - If Slack notifications are enabled, the message is sent using the Slack API.
+// - If Slack notifications are not enabled, the message is appended to the local messages slice.
+func sendOrAppend(message string) {
+	if notifications.SlackEnabled() {
+		notifications.SendSlackNotification(&api, message)
+	} else {
+		messages = append(messages, message)
+	}
+}
+
 // checkResources checks the resource usage of a given pod and sends notifications
 // if the usage exceeds defined limits or requests.
 func checkResources(info co.PodInfo) {
-	sendOrAppend := func(message string) {
-		if notifications.SlackEnabled() {
-			notifications.SendSlackNotification(&api, message)
-		} else {
-			messages = append(messages, message)
-		}
-	}
 
 	for resourceName, resourceQuantity := range info.Resources.Limits {
 		if requestQuantity, exists := info.Resources.Requests[resourceName]; exists {
