@@ -12,28 +12,22 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 var (
 	api              = *notifications.NewSlackClient()
 	DURATION_SECONDS = utils.GetEnv("DURATION_SECONDS", "120s", log)
-	k8sManager       = auth.NewClientManager(log)
+	k8sManager       = *auth.NewClientManager(log)
 	log              = utils.Logger()
-	messages         = []string{}
 )
 
-// main is the entry point of the application. It sets up the Kubernetes client,
-// retrieves pod metrics, and periodically checks resource usage.
 func main() {
-	clientset, err := k8sManager.GetKubernetesClient()
+	clientset, metricset, err := initialiseClients()
 	if err != nil {
-		utils.LogWithFields(logrus.FatalLevel, nil, "Kubernetes config error", err)
-		return
-	}
-
-	metricset, err := k8sManager.GetMetricsClient()
-	if err != nil {
-		utils.LogWithFields(logrus.FatalLevel, nil, "Metrics config error", err)
+		utils.LogWithFields(logrus.FatalLevel, nil, "Client initialisation error", err)
 		return
 	}
 
@@ -43,42 +37,14 @@ func main() {
 		return
 	}
 
-	ticker := time.NewTicker(duration * time.Second)
+	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		var podInfo []co.PodInfo
-		pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
+		podInfo, err := getPodInfo(clientset, metricset)
 		if err != nil {
-			utils.LogWithFields(logrus.ErrorLevel, nil, "Cannot get pods", err)
-			return
-		}
-		for _, pod := range pods.Items {
-			if pod.Namespace == "kube-system" {
-				continue
-			}
-			for _, container := range pod.Spec.Containers {
-				utils.LogWithFields(logrus.DebugLevel, nil, fmt.Sprintf("getting metrics for %s in namespace %s", container.Name, pod.Namespace))
-				metrics, err := metricset.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-				if err != nil {
-					utils.LogWithFields(logrus.ErrorLevel, nil, fmt.Sprintf("Error getting metrics for %s in namespace %s", container.Name, pod.Namespace), err)
-					continue
-				}
-				var usageInfo []co.UsageInfo
-				for _, mc := range metrics.Containers {
-					usageInfo = append(usageInfo, co.UsageInfo{
-						Name:   mc.Name,
-						CPU:    mc.Usage.Cpu().MilliValue(),
-						Memory: mc.Usage.Memory().Value() / (1024 * 1024),
-					})
-				}
-				podInfo = append(podInfo, co.PodInfo{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-					Resources: container.Resources,
-					Usage:     usageInfo,
-				})
-			}
+			utils.LogWithFields(logrus.ErrorLevel, nil, "Error retrieving pod info", err)
+			continue
 		}
 		for _, info := range podInfo {
 			checkResources(info)
@@ -86,27 +52,82 @@ func main() {
 	}
 }
 
-// sendOrAppend sends a message via Slack if Slack notifications are enabled,
-// otherwise, it appends the message to a local messages slice.
-//
-// Parameters:
-// - message: The message to be sent or appended.
-//
-// Behaviour:
-// - If Slack notifications are enabled, the message is sent using the Slack API.
-// - If Slack notifications are not enabled, the message is appended to the local messages slice.
-func sendOrAppend(message string) {
-	if notifications.SlackEnabled() {
-		notifications.SendSlackNotification(&api, message)
-	} else {
-		messages = append(messages, message)
+func initialiseClients() (*kubernetes.Clientset, *versioned.Clientset, error) {
+	clientset, err := k8sManager.GetKubernetesClient()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Kubernetes config error: %w", err)
+	}
+
+	metricset, err := k8sManager.GetMetricsClient()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Metrics config error: %w", err)
+	}
+
+	return clientset, metricset, nil
+}
+
+func getPodInfo(clientset *kubernetes.Clientset, metricset *versioned.Clientset) ([]co.PodInfo, error) {
+	var podInfo []co.PodInfo
+	pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get pods: %w", err)
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Namespace == "kube-system" {
+			continue
+		}
+		for _, container := range pod.Spec.Containers {
+			utils.LogWithFields(logrus.DebugLevel, nil, fmt.Sprintf("getting metrics for %s in namespace %s", container.Name, pod.Namespace))
+			metrics, err := metricset.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			if err != nil {
+				utils.LogWithFields(logrus.ErrorLevel, nil, fmt.Sprintf("Error getting metrics for %s in namespace %s", container.Name, pod.Namespace), err)
+				continue
+			}
+			usageInfo := extractUsageInfo(metrics)
+			podInfo = append(podInfo, co.PodInfo{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				Resources: container.Resources,
+				Usage:     usageInfo,
+			})
+		}
+	}
+	return podInfo, nil
+}
+
+func extractUsageInfo(metrics *v1beta1.PodMetrics) []co.UsageInfo {
+	var usageInfo []co.UsageInfo
+	for _, mc := range metrics.Containers {
+		usageInfo = append(usageInfo, co.UsageInfo{
+			Name:   mc.Name,
+			CPU:    mc.Usage.Cpu().MilliValue(),
+			Memory: mc.Usage.Memory().Value() / (1024 * 1024),
+		})
+	}
+	return usageInfo
+}
+
+func checkResources(info co.PodInfo) {
+	messages := []string{}
+	sendOrAppend := func(message string) {
+		if notifications.SlackEnabled() {
+			notifications.SendSlackNotification(&api, message)
+		} else {
+			messages = append(messages, message)
+		}
+	}
+
+	checkResourceLimits(info, sendOrAppend)
+	checkResourceRequests(info, sendOrAppend)
+	checkMissingResources(info, sendOrAppend)
+
+	if len(messages) > 0 && !notifications.SlackEnabled() {
+		utils.LogWithFields(logrus.InfoLevel, messages, "Resource(s) need adjusting")
 	}
 }
 
-// checkResources checks the resource usage of a given pod and sends notifications
-// if the usage exceeds defined limits or requests.
-func checkResources(info co.PodInfo) {
-
+func checkResourceLimits(info co.PodInfo, sendOrAppend func(string)) {
 	for resourceName, resourceQuantity := range info.Resources.Limits {
 		if requestQuantity, exists := info.Resources.Requests[resourceName]; exists {
 			if resourceQuantity.Cmp(requestQuantity) < 0 {
@@ -116,7 +137,9 @@ func checkResources(info co.PodInfo) {
 			sendOrAppend(fmt.Sprintf("WARNING: Container %s in namespace %s has resource %s limit set but no request defined. Current usage: %s", info.Name, info.Namespace, resourceName, resourceQuantity.String()))
 		}
 	}
+}
 
+func checkResourceRequests(info co.PodInfo, sendOrAppend func(string)) {
 	for resourceName, resourceQuantity := range info.Resources.Requests {
 		if limitQuantity, exists := info.Resources.Limits[resourceName]; exists {
 			if resourceQuantity.Cmp(limitQuantity) > 0 {
@@ -126,7 +149,9 @@ func checkResources(info co.PodInfo) {
 			sendOrAppend(fmt.Sprintf("WARNING: Container %s in namespace %s has resource %s request set but no limit defined. Current usage: %s", info.Name, info.Namespace, resourceName, resourceQuantity.String()))
 		}
 	}
+}
 
+func checkMissingResources(info co.PodInfo, sendOrAppend func(string)) {
 	for _, resourceName := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
 		if _, exists := info.Resources.Limits[resourceName]; !exists {
 			sendOrAppend(fmt.Sprintf("WARNING: Container %s in namespace %s has no %s limit set. Current state: %v", info.Name, info.Namespace, resourceName, info.Usage))
@@ -134,9 +159,5 @@ func checkResources(info co.PodInfo) {
 		if _, exists := info.Resources.Requests[resourceName]; !exists {
 			sendOrAppend(fmt.Sprintf("WARNING: Container %s in namespace %s has no %s request set. Current state: %v", info.Name, info.Namespace, resourceName, info.Usage))
 		}
-	}
-
-	if len(messages) > 0 && !notifications.SlackEnabled() {
-		utils.LogWithFields(logrus.InfoLevel, messages, "Resource(s) need adjusting")
 	}
 }
