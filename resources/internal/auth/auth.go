@@ -10,28 +10,21 @@ import (
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-// ClientManager manages the creation and access to Kubernetes and metrics clientsets.
 type ClientManager struct {
-	k8sClientset     *kubernetes.Clientset // The Kubernetes clientset instance.
-	metricsClientset *versioned.Clientset  // The metrics clientset instance.
-	k8sOnce          sync.Once             // Ensures that the Kubernetes client is created only once.
-	metricsOnce      sync.Once             // Ensures that the metrics client is created only once.
-	configOnce       sync.Once             // Ensures that the in-cluster config is created only once.
-	log              *logrus.Logger        // Logger for logging events and errors.
-	config           *rest.Config          // The in-cluster configuration.
-	configErr        error                 // Error encountered while creating the in-cluster configuration.
+	k8sClientset     *kubernetes.Clientset
+	metricsClientset *versioned.Clientset
+	k8sOnce          sync.Once
+	metricsOnce      sync.Once
+	configOnce       sync.Once
+	log              *logrus.Logger
+	config           *rest.Config
+	configErr        error
 }
 
-// NewClientManager creates a new instance of ClientManager.
-// Parameters:
-// - log: A logger instance for logging events and errors.
-// Returns:
-// - A pointer to a new ClientManager instance.
 func NewClientManager(log *logrus.Logger) *ClientManager {
 	return &ClientManager{log: log}
 }
 
-// getInClusterConfig retrieves the in-cluster configuration and handles errors.
 func (m *ClientManager) getInClusterConfig() (*rest.Config, error) {
 	m.configOnce.Do(func() {
 		m.config, m.configErr = rest.InClusterConfig()
@@ -42,10 +35,6 @@ func (m *ClientManager) getInClusterConfig() (*rest.Config, error) {
 	return m.config, m.configErr
 }
 
-// GetKubernetesClient returns the Kubernetes clientset instance, creating it if necessary.
-// Returns:
-// - A pointer to the Kubernetes clientset instance.
-// - An error if there was an issue creating the clientset.
 func (m *ClientManager) GetKubernetesClient() (*kubernetes.Clientset, error) {
 	var err error
 	m.k8sOnce.Do(func() {
@@ -73,10 +62,6 @@ func (m *ClientManager) GetKubernetesClient() (*kubernetes.Clientset, error) {
 	return m.k8sClientset, nil
 }
 
-// GetMetricsClient returns the metrics clientset instance, creating it if necessary.
-// Returns:
-// - A pointer to the metrics clientset instance.
-// - An error if there was an issue creating the metrics clientset.
 func (m *ClientManager) GetMetricsClient() (*versioned.Clientset, error) {
 	var err error
 	m.metricsOnce.Do(func() {
@@ -101,7 +86,6 @@ func (m *ClientManager) GetMetricsClient() (*versioned.Clientset, error) {
 		return nil, err
 	}
 
-	// Additional logging to verify the clientset
 	m.log.Info("Metrics clientset created: ", m.metricsClientset)
 
 	return m.metricsClientset, nil

@@ -49,7 +49,7 @@ go mod tidy
 
 Before running the application, you need to set up the following environment variables - all optional:
 
-- `DURATION_SECONDS`: The duration (in seconds) for which the application will check resource usage. Default is `120`.
+- `DURATION_SECONDS`: The duration (in seconds) for which the application will check resource usage. Default is `120s`.
 - `SLACK_TOKEN`: The token for your Slack app to send notifications (optional).
 - `SLACK_CHANNEL`: The Slack channel where notifications will be sent (optional).
 
