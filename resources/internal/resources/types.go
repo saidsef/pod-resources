@@ -29,4 +29,7 @@ type UsageInfo struct {
 
 	// Memory is the memory usage of the container in bytes.
 	Memory int64
+
+	// Ephemeral Storage usage of the container in bytes.
+	EphemeralStorage int64
 }
