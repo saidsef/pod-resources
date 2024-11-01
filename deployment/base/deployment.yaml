@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - env: []
-          image: 'ghcr.io/saidsef/pod-resources:v2024.09'
+          image: 'ghcr.io/saidsef/pod-resources:v2024.10'
           imagePullPolicy: Always
           name: pod-resources
           resources:
