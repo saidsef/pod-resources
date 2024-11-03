@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pod-resources
+    app.kubernetes.net/name: pod-resources
   name: pod-resources
 spec:
   progressDeadlineSeconds: 600
@@ -10,7 +10,7 @@ spec:
   revisionHistoryLimit: 5
   selector:
     matchLabels:
-      app: pod-resources
+      app.kubernetes.net/name: pod-resources
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -19,11 +19,11 @@ spec:
   template:
     metadata:
       labels:
-        app: pod-resources
+        app.kubernetes.net/name: pod-resources
     spec:
       containers:
         - env: []
-          image: 'ghcr.io/saidsef/pod-resources:v2024.10'
+          image: 'ghcr.io/saidsef/pod-resources:v2024.11'
           imagePullPolicy: Always
           name: pod-resources
           resources:
@@ -33,6 +33,16 @@ spec:
             requests:
               cpu: 5m
               memory: 5Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
       dnsPolicy: ClusterFirst
       securityContext: {}
       serviceAccountName: pod-resources

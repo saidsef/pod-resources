@@ -8,6 +8,8 @@ RUN go build -v -ldflags "-s -w" -trimpath -buildvcs -compiler gc -o ./pod-resou
 # Application
 FROM scratch
 
+USER 1000:1000
+
 LABEL org.opencontainers.image.title="Pod Resources"
 LABEL org.opencontainers.image.description="Kubernetes Container Resources"
 LABEL org.opencontainers.image.source="https://github.com/saidsef/pod-resources.git"
