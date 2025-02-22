@@ -7,7 +7,7 @@
 
 # Pod Resources Monitoring
 
-This project is a Kubernetes resource monitoring application that retrieves pod metrics and checks resource usage periodically. It sends alerts and warnings based on the defined resource limits and requests for each container within the pods.
+Monitor you app without Prometheus or Datadog. This project is a Kubernetes resource monitoring application that retrieves pod metrics and checks resource usage periodically. It sends alerts and warnings based on the defined resource limits and requests for each container within the pods.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ This project is a Kubernetes resource monitoring application that retrieves pod 
 
 ## Requirements
 
-- Go 1.16 or later
+- Go 1.18 or later
 - Kubernetes cluster
 - Access to Kubernetes API
 - Slack account (optional for notifications)
