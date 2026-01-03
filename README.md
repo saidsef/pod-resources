@@ -15,7 +15,6 @@ Monitor you app without Prometheus or Datadog. This project is a Kubernetes reso
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Usage](#usage)
 - [License](#license)
 
 ## Features
@@ -27,7 +26,7 @@ Monitor you app without Prometheus or Datadog. This project is a Kubernetes reso
 
 ## Requirements
 
-- Go >= 1.21
+- Go >= 1.25
 - Kubernetes cluster
 - Access to Kubernetes API
 - Slack account (optional for notifications)
@@ -35,31 +34,29 @@ Monitor you app without Prometheus or Datadog. This project is a Kubernetes reso
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/saidsef/pod-resources.git
 cd pod-resources
+go mod tidy
+go run resources.go
 ```
 
-2. Install the required Go modules:
+2. Install in Kubernetes
+
 ```bash
-go mod tidy
+kubectl apply -k deployment/ 
 ```
 
 ## Configuration
 
 Before running the application, you need to set up the following environment variables - all optional:
+| Environment Variable | Description                                                         | Default  | Optional |
+|----------------------|---------------------------------------------------------------------|----------|----------|
+| `DURATION_SECONDS`   | Duration (in seconds) for resource usage checks                     | `120s`   | Yes      |
+| `SLACK_TOKEN`        | Slack app token for sending notifications                           | —        | Yes      |
+| `SLACK_CHANNEL`      | Slack channel for notifications                                     | —        | Yes      |
 
-- `DURATION_SECONDS`: The duration (in seconds) for which the application will check resource usage. Default is `120s`.
-- `SLACK_TOKEN`: The token for your Slack app to send notifications (optional).
-- `SLACK_CHANNEL`: The Slack channel where notifications will be sent (optional).
-
-## Usage
-
-To run the application, execute the following command:
-
-```bash
-go run resources.go
-```
 
 The application will connect to the Kubernetes cluster, retrieve the list of pods, and start monitoring their resource usage based on the specified duration.
 
