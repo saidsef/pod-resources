@@ -3,7 +3,7 @@ module github.com/saidsef/pod-resources
 go 1.25.0
 
 require (
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/slack-go/slack v0.17.3
 	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0
