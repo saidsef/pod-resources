@@ -55,9 +55,12 @@ jobs:
     - name: Check out repository code
       uses: actions/checkout@v4
     - name: Set Tag Name
+      env:
+        REF_NAME: ${{ github.head_ref || github.ref_name }}
       run: |
-        echo "TAG=${{ github.head_ref || github.ref_name }}" >> $GITHUB_ENV
-        echo "DATE=v$(echo `date +'%Y.%m'`)" >> $GITHUB_ENV
+        SAFE_TAG=$(printf '%s' "$REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+        echo "TAG=${SAFE_TAG}" >> "$GITHUB_ENV"
+        echo "DATE=v$(date +'%Y.%m')" >> "$GITHUB_ENV"
     - name: Check for changes in 'resources' folder
       id: check_changes
       run: |
