@@ -58,7 +58,9 @@ jobs:
       env:
         REF_NAME: ${{ github.head_ref || github.ref_name }}
       run: |
-        SAFE_TAG=$(printf '%s' "$REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+        # Must match ArgoCD's branch_slug (gosimple/slug): lowercase, every
+        # non-alphanumeric run collapsed to a dash, capped at 50 chars.
+        SAFE_TAG=$(printf '%s' "$REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-50)
         echo "TAG=${SAFE_TAG}" >> "$GITHUB_ENV"
         echo "DATE=v$(date +'%Y.%m')" >> "$GITHUB_ENV"
     - name: Check for changes in 'resources' folder
