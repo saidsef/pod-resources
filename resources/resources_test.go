@@ -20,7 +20,7 @@ func TestMonitorRunsTheCheckOnEveryTick(t *testing.T) {
 			monitor(ctx, 120*time.Second, func() { checks.Add(1) })
 		}()
 
-		synctest.Sleep(6*time.Minute + time.Second)
+		time.Sleep(6*time.Minute + time.Second)
 		synctest.Wait()
 
 		if got := checks.Load(); got != 3 {
@@ -44,7 +44,7 @@ func TestMonitorWaitsForTheFirstInterval(t *testing.T) {
 			monitor(ctx, 120*time.Second, func() { checks.Add(1) })
 		}()
 
-		synctest.Sleep(119 * time.Second)
+		time.Sleep(119 * time.Second)
 		synctest.Wait()
 
 		if got := checks.Load(); got != 0 {
@@ -68,13 +68,13 @@ func TestMonitorStopsWhenTheContextIsCancelled(t *testing.T) {
 			monitor(ctx, 120*time.Second, func() { checks.Add(1) })
 		}()
 
-		synctest.Sleep(121 * time.Second)
+		time.Sleep(121 * time.Second)
 		synctest.Wait()
 		cancel()
 		<-done
 
 		ran := checks.Load()
-		synctest.Sleep(10 * time.Minute)
+		time.Sleep(10 * time.Minute)
 		synctest.Wait()
 
 		if got := checks.Load(); got != ran {
