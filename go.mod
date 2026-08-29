@@ -1,6 +1,6 @@
 module github.com/saidsef/pod-resources
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/sirupsen/logrus v1.10.2
