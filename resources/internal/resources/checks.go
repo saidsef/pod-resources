@@ -8,16 +8,16 @@ import (
 	"github.com/saidsef/pod-resources/resources/utils"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-var (
-	api = *notifications.NewSlackClient()
-	log = utils.Logger()
-)
+const podListPageSize = 500
+
+var api = *notifications.NewSlackClient()
 
 func ExtractUsageInfo(metrics *v1beta1.PodMetrics) []UsageInfo {
 	var usageInfo []UsageInfo
@@ -44,65 +44,104 @@ func CheckResources(info PodInfo) {
 
 	CheckResourceRL(info, sendOrAppend)
 
-	if len(messages) > 0 && !notifications.SlackEnabled() {
-		utils.LogWithFields(logrus.InfoLevel, messages, "Resource(s) need adjusting")
+	for _, message := range messages {
+		utils.LogWithFields(logrus.InfoLevel, nil, message)
 	}
 }
 
 func CheckResourceRL(info PodInfo, sendOrAppend func(string)) {
-	messages := []string{}
-	for _, resource := range []v1.ResourceList{info.Resources.Limits, info.Resources.Requests} {
-		for resourceName, resourceQuantity := range resource {
-			if requestQuantity, exists := resource[resourceName]; exists {
-				if resourceQuantity.Cmp(requestQuantity) < 0 {
-					messages = append(messages, fmt.Sprintf("ALERT: Container %s in namespace %s has resource %s exceeding its request limit. Current usage: %s", info.Name, info.Namespace, resourceName, resourceQuantity.String()))
-				}
-				if resourceQuantity.Cmp(requestQuantity) > 0 {
-					messages = append(messages, fmt.Sprintf("ALERT: Container %s in namespace %s has resource %s exceeding its limit. Current usage: %s", info.Name, info.Namespace, resourceName, resourceQuantity.String()))
-				}
-			}
+	where := fmt.Sprintf("Container %s in pod %s namespace %s", info.Container, info.Name, info.Namespace)
 
-			for _, resourceName := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
-				if _, exists := resource[resourceName]; !exists {
-					messages = append(messages, fmt.Sprintf("WARNING: Container %s in namespace %s has no %s limit set. Current state: %v", info.Name, info.Namespace, resourceName, info.Usage))
-				}
-				if _, exists := resource[resourceName]; !exists {
-					messages = append(messages, fmt.Sprintf("WARNING: Container %s in namespace %s has no %s request set. Current state: %v", info.Name, info.Namespace, resourceName, info.Usage))
-				}
-			}
+	for _, resourceName := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
+		usage := usageOf(info.Usage, resourceName)
+
+		if limit, exists := info.Resources.Limits[resourceName]; !exists {
+			sendOrAppend(fmt.Sprintf("WARNING: %s has no %s limit set. Current usage: %s", where, resourceName, formatUsage(usage, resourceName)))
+		} else if usage > comparableTo(limit, resourceName) {
+			sendOrAppend(fmt.Sprintf("ALERT: %s has %s usage of %s, above its limit of %s", where, resourceName, formatUsage(usage, resourceName), limit.String()))
+		}
+
+		if request, exists := info.Resources.Requests[resourceName]; !exists {
+			sendOrAppend(fmt.Sprintf("WARNING: %s has no %s request set. Current usage: %s", where, resourceName, formatUsage(usage, resourceName)))
+		} else if usage > comparableTo(request, resourceName) {
+			sendOrAppend(fmt.Sprintf("ALERT: %s has %s usage of %s, above its request of %s", where, resourceName, formatUsage(usage, resourceName), request.String()))
 		}
 	}
-	for _, message := range messages {
-		sendOrAppend(message)
+}
+
+// usageOf returns the measured usage of resourceName in millicores for CPU and mebibytes for memory.
+func usageOf(usage UsageInfo, resourceName v1.ResourceName) int64 {
+	if resourceName == v1.ResourceCPU {
+		return usage.CPU
 	}
+	return usage.Memory
+}
+
+// comparableTo converts quantity into the unit usageOf reports, so the two can be compared as integers.
+func comparableTo(quantity resource.Quantity, resourceName v1.ResourceName) int64 {
+	if resourceName == v1.ResourceCPU {
+		return quantity.MilliValue()
+	}
+	return quantity.Value() / (1024 * 1024)
+}
+
+// formatUsage renders a value returned by usageOf with the unit it is measured in.
+func formatUsage(value int64, resourceName v1.ResourceName) string {
+	if resourceName == v1.ResourceCPU {
+		return fmt.Sprintf("%dm", value)
+	}
+	return fmt.Sprintf("%dMi", value)
 }
 
 func GetPodInfo(clientset *kubernetes.Clientset, metricset *versioned.Clientset) ([]PodInfo, error) {
 	var podInfo []PodInfo
-	pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("Cannot get pods: %w", err)
+	options := metav1.ListOptions{
+		FieldSelector: "metadata.namespace!=kube-system",
+		Limit:         podListPageSize,
 	}
 
-	for _, pod := range pods.Items {
-		if pod.Namespace == "kube-system" {
-			continue
+	for {
+		pods, err := clientset.CoreV1().Pods("").List(context.Background(), options)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot get pods: %w", err)
 		}
-		for _, container := range pod.Spec.Containers {
-			utils.LogWithFields(logrus.DebugLevel, nil, fmt.Sprintf("getting metrics for %s in namespace %s", container.Name, pod.Namespace))
-			metrics, err := metricset.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-			if err != nil {
-				utils.LogWithFields(logrus.ErrorLevel, nil, fmt.Sprintf("Error getting metrics for %s in namespace %s", container.Name, pod.Namespace), err)
+
+		for _, pod := range pods.Items {
+			if pod.Namespace == "kube-system" {
 				continue
 			}
-			usageInfo := ExtractUsageInfo(metrics)
-			podInfo = append(podInfo, PodInfo{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				Resources: container.Resources,
-				Usage:     usageInfo,
-			})
+			podInfo = append(podInfo, containerInfo(metricset, pod)...)
 		}
+
+		if pods.Continue == "" {
+			return podInfo, nil
+		}
+		options.Continue = pods.Continue
 	}
-	return podInfo, nil
+}
+
+func containerInfo(metricset *versioned.Clientset, pod v1.Pod) []PodInfo {
+	utils.LogWithFields(logrus.DebugLevel, nil, fmt.Sprintf("getting metrics for pod %s in namespace %s", pod.Name, pod.Namespace))
+	metrics, err := metricset.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	if err != nil {
+		utils.LogWithFields(logrus.ErrorLevel, nil, fmt.Sprintf("Error getting metrics for pod %s in namespace %s", pod.Name, pod.Namespace), err)
+		return nil
+	}
+
+	usage := make(map[string]UsageInfo, len(metrics.Containers))
+	for _, containerUsage := range ExtractUsageInfo(metrics) {
+		usage[containerUsage.Name] = containerUsage
+	}
+
+	info := make([]PodInfo, 0, len(pod.Spec.Containers))
+	for _, container := range pod.Spec.Containers {
+		info = append(info, PodInfo{
+			Name:      pod.Name,
+			Container: container.Name,
+			Namespace: pod.Namespace,
+			Resources: container.Resources,
+			Usage:     usage[container.Name],
+		})
+	}
+	return info
 }
