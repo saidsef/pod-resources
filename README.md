@@ -26,7 +26,7 @@ Monitor you app without Prometheus or Datadog. This project is a Kubernetes reso
 
 ## Requirements
 
-- Go >= 1.25
+- Go >= 1.27
 - Kubernetes cluster
 - Access to Kubernetes API
 - Slack account (optional for notifications)
