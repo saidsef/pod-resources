@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -34,6 +35,21 @@ func initialiseClients() (*kubernetes.Clientset, *versioned.Clientset, error) {
 	return clientset, metricset, nil
 }
 
+// monitor runs check once per interval until ctx is cancelled.
+func monitor(ctx context.Context, interval time.Duration, check func()) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			check()
+		}
+	}
+}
+
 func main() {
 	clientset, metricset, err := initialiseClients()
 	if err != nil {
@@ -47,17 +63,14 @@ func main() {
 		return
 	}
 
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
-
-	for range ticker.C {
+	monitor(context.Background(), duration, func() {
 		podInfo, err := co.GetPodInfo(clientset, metricset)
 		if err != nil {
 			utils.LogWithFields(logrus.ErrorLevel, nil, "Error retrieving pod info", err)
-			continue
+			return
 		}
 		for _, info := range podInfo {
 			co.CheckResources(info)
 		}
-	}
+	})
 }
