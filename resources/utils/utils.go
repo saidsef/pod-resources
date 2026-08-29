@@ -48,23 +48,6 @@ func GetEnv(key, defaultValue string, log *logrus.Logger) string {
 	return value
 }
 
-// Contains checks if a string is present in a slice of strings.
-//
-// Parameters:
-// - list: A slice of strings to search through.
-// - str: The string to search for.
-//
-// Returns:
-// - A boolean indicating whether the string is found in the slice.
-func Contains(list []string, str string) bool {
-	for _, item := range list {
-		if item == str {
-			return true
-		}
-	}
-	return false
-}
-
 // LogWithFields is a utility function for logging messages with different log levels.
 // It logs the provided message along with any additional fields and an error if present.
 //
@@ -81,12 +64,11 @@ func LogWithFields(level logrus.Level, fields []string, message string, errs ...
 
 	// Convert []string to logrus.Fields
 	for _, field := range fields {
-		parts := strings.SplitN(field, ":", 2) // Split into key and value
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			logFields[key] = value
+		key, value, found := strings.Cut(field, ":")
+		if !found {
+			continue
 		}
+		logFields[strings.TrimSpace(key)] = strings.TrimSpace(value)
 	}
 
 	// If there's an error, add it to the fields
