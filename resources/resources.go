@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/saidsef/pod-resources/resources/internal/auth"
@@ -16,7 +15,6 @@ import (
 
 var (
 	DURATION_SECONDS = utils.GetEnv("DURATION_SECONDS", "120s", log)
-	RESOURCE_TYPE    = strings.Split(utils.GetEnv("RESOURCE_TYPE", "CPU,MEMORY", utils.Logger()), ",")
 	k8sManager       = *auth.NewClientManager(log)
 	log              = utils.Logger()
 )

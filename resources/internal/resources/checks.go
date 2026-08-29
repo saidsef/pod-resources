@@ -3,6 +3,8 @@ package containers
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/saidsef/pod-resources/resources/internal/notifications"
 	"github.com/saidsef/pod-resources/resources/utils"
@@ -17,7 +19,30 @@ import (
 
 const podListPageSize = 500
 
-var api = *notifications.NewSlackClient()
+var (
+	api       = *notifications.NewSlackClient()
+	monitored = monitoredResources(strings.Split(utils.GetEnv("RESOURCE_TYPE", "CPU,MEMORY", utils.Logger()), ","))
+)
+
+// monitoredResources maps the RESOURCE_TYPE names onto the resources CheckResourceRL examines.
+func monitoredResources(names []string) []v1.ResourceName {
+	wanted := make([]string, 0, len(names))
+	for _, name := range names {
+		wanted = append(wanted, strings.ToLower(strings.TrimSpace(name)))
+	}
+
+	var resources []v1.ResourceName
+	for _, name := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
+		if slices.Contains(wanted, string(name)) {
+			resources = append(resources, name)
+		}
+	}
+
+	if len(resources) == 0 {
+		utils.LogWithFields(logrus.WarnLevel, nil, fmt.Sprintf("RESOURCE_TYPE %q names no supported resource, nothing will be checked", strings.Join(names, ",")))
+	}
+	return resources
+}
 
 func ExtractUsageInfo(metrics *v1beta1.PodMetrics) []UsageInfo {
 	var usageInfo []UsageInfo
@@ -52,7 +77,7 @@ func CheckResources(info PodInfo) {
 func CheckResourceRL(info PodInfo, sendOrAppend func(string)) {
 	where := fmt.Sprintf("Container %s in pod %s namespace %s", info.Container, info.Name, info.Namespace)
 
-	for _, resourceName := range []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory} {
+	for _, resourceName := range monitored {
 		usage := usageOf(info.Usage, resourceName)
 
 		if limit, exists := info.Resources.Limits[resourceName]; !exists {

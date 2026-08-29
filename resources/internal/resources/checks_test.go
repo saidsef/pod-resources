@@ -293,3 +293,56 @@ func TestGetPodInfoReturnsListErrors(t *testing.T) {
 		t.Fatal("GetPodInfo returned no error when listing pods failed")
 	}
 }
+
+func TestMonitoredResources(t *testing.T) {
+	tests := []struct {
+		name  string
+		names []string
+		want  []v1.ResourceName
+	}{
+		{"the default", []string{"CPU", "MEMORY"}, []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory}},
+		{"cpu on its own", []string{"CPU"}, []v1.ResourceName{v1.ResourceCPU}},
+		{"lower case and padding", []string{" memory ", "cpu"}, []v1.ResourceName{v1.ResourceCPU, v1.ResourceMemory}},
+		{"a name that is not supported", []string{"DISK"}, nil},
+		{"an empty setting", []string{""}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := monitoredResources(tt.names)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Errorf("entry %d is %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestCheckResourceRLHonoursTheFilter(t *testing.T) {
+	original := monitored
+	t.Cleanup(func() { monitored = original })
+	monitored = []v1.ResourceName{v1.ResourceCPU}
+
+	var got []string
+	CheckResourceRL(PodInfo{
+		Name: "web-0", Container: "web", Namespace: "shop",
+		Usage: UsageInfo{Name: "web", CPU: 500, Memory: 200},
+	}, func(message string) { got = append(got, message) })
+
+	want := []string{
+		"WARNING: Container web in pod web-0 namespace shop has no cpu limit set. Current usage: 500m",
+		"WARNING: Container web in pod web-0 namespace shop has no cpu request set. Current usage: 500m",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d messages, want only the cpu pair\ngot: %q", len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("message %d:\ngot:  %q\nwant: %q", i, got[i], want[i])
+		}
+	}
+}

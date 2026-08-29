@@ -56,6 +56,7 @@ Before running the application, you need to set up the following environment var
 | `DURATION_SECONDS`   | Duration (in seconds) for resource usage checks                     | `120s`   | Yes      |
 | `SLACK_TOKEN`        | Slack app token for sending notifications                           | —        | Yes      |
 | `SLACK_CHANNEL`      | Slack channel for notifications                                     | —        | Yes      |
+| `RESOURCE_TYPE`      | Resources to check, comma separated: `CPU`, `MEMORY`                | `CPU,MEMORY` | Yes      |
 
 
 The application will connect to the Kubernetes cluster, retrieve the list of pods, and start monitoring their resource usage based on the specified duration.
