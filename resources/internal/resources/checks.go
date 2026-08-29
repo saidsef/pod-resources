@@ -93,7 +93,7 @@ func formatUsage(value int64, resourceName v1.ResourceName) string {
 	return fmt.Sprintf("%dMi", value)
 }
 
-func GetPodInfo(clientset *kubernetes.Clientset, metricset *versioned.Clientset) ([]PodInfo, error) {
+func GetPodInfo(clientset kubernetes.Interface, metricset versioned.Interface) ([]PodInfo, error) {
 	var podInfo []PodInfo
 	options := metav1.ListOptions{
 		FieldSelector: "metadata.namespace!=kube-system",
@@ -120,7 +120,7 @@ func GetPodInfo(clientset *kubernetes.Clientset, metricset *versioned.Clientset)
 	}
 }
 
-func containerInfo(metricset *versioned.Clientset, pod v1.Pod) []PodInfo {
+func containerInfo(metricset versioned.Interface, pod v1.Pod) []PodInfo {
 	utils.LogWithFields(logrus.DebugLevel, nil, fmt.Sprintf("getting metrics for pod %s in namespace %s", pod.Name, pod.Namespace))
 	metrics, err := metricset.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 	if err != nil {
